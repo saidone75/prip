@@ -101,7 +101,8 @@ info 'All tracks match and FLAC integrity checks passed.'
 mv -- trial-a/flac ./flac
 mv -- trial-a/audio.sha256 logs/trial-a/audio.sha256
 mv -- trial-b/audio.sha256 logs/trial-b/audio.sha256
-for pregap in flac/track00.cdda.flac flac/track00.flac; do
+for pregap in flac/track00.cdda.flac flac/track00.flac \
+    logs/trial-{a,b}/track00.cdda.log logs/trial-{a,b}/track00.log; do
     if [[ -f $pregap ]]; then
         rm -- "$pregap"
         info "Discarded pregap: $pregap"
