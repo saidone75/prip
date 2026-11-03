@@ -35,7 +35,7 @@ usage() {
     printf 'Find FLAC directories recursively and create sibling mp3/ogg directories.\n'
     printf 'Existing outputs are never overwritten. Source audio and metadata are unchanged.\n'
     printf 'Rename trackXX.cdda.flac to trackXX.flac (XX = two digits), without overwriting.\n'
-    printf 'Environment: MP3=1 OGG=0 MP3_QUALITY=2 OGG_QUALITY=6 DEBUG=1\n'
+    printf 'Environment: MP3=1 OGG=0 MP3_QUALITY=0 OGG_QUALITY=6 DEBUG=1\n'
     printf 'Set EXIT_ON_MISSING_ALBUM_META=0 to allow missing ALBUM tags.\n'
 }
 folder=

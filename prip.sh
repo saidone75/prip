@@ -11,14 +11,49 @@ shopt -s nullglob nocaseglob
 
 DEBUG=${DEBUG:-1}
 workdir=
+summary=
+started=$SECONDS
+stage=initialization
+verified=no
+failure=
+
+write_summary() {
+    local status=$? logfile
+    trap - EXIT ERR
+    if [[ -n $summary ]]; then
+        {
+            for logfile in "$workdir"/logs/trial-{a,b}/cdparanoia.log; do
+                [[ -f $logfile ]] || continue
+                printf '\nRead events: %s\n' "${logfile#"$workdir"/logs/}"
+                awk '
+                    /\[jitter\]/ { jitter++ }
+                    /\[skip\]/ { skips++ }
+                    /\[readerr\]/ { readerrors++ }
+                    END {
+                        printf "Jitter callbacks: %d\nSkip callbacks: %d\nRead-error callbacks: %d\n", jitter, skips, readerrors
+                    }
+                ' "$logfile"
+            done
+            printf '\nAudio comparison and FLAC verification passed: %s\n' "$verified"
+            printf 'Final stage: %s\nExit status: %s\n' "$stage" "$status"
+            [[ -z $failure ]] || printf 'Error: %s\n' "$failure"
+            printf 'Total elapsed seconds: %s\n' "$((SECONDS - started))"
+            printf 'Finished: %(%Y-%m-%dT%H:%M:%S%z)T\n' -1
+        } >> "$summary" || printf '[WARN] Could not finish summary: %s\n' "$summary" >&2
+        printf '[INFO] Summary: %s\n' "$summary"
+    fi
+    exit "$status"
+}
+trap write_summary EXIT
 
 info() { printf '[INFO] %s\n' "$*"; }
 debug() { if [[ $DEBUG == 1 ]]; then printf '[DEBUG] %s\n' "$*"; fi; }
-fatal() { printf '[FATAL] %s\n' "$*" >&2; exit 1; }
+fatal() { failure=$*; printf '[FATAL] %s\n' "$*" >&2; exit 1; }
 
 on_error() {
     local status=$?
     trap - ERR
+    failure="Command failed (exit $status), line $1."
     printf '[FATAL] Command failed (exit %s), line %s.\n' "$status" "$1" >&2
     if [[ -n $workdir ]]; then
         printf 'Files and logs retained in: %s\n' "$workdir" >&2
@@ -33,6 +68,7 @@ usage() {
     printf 'Read a CD twice, encode and verify FLAC files, and compare decoded audio.\n'
     printf 'Discard track00 (the first-track pregap) after successful verification.\n'
     printf 'The destination must not already exist. Logs are kept under destination/logs.\n'
+    printf 'A persistent summary is saved as destination/logs/summary.log.\n'
 }
 
 mainproject=
@@ -56,11 +92,20 @@ mkdir -- "$mainproject"
 cd -- "$mainproject"
 workdir=$PWD
 mkdir -- logs
+summary="$workdir/logs/summary.log"
+{
+    printf 'CD rip summary\nDestination: %s\n' "$workdir"
+    printf 'Started: %(%Y-%m-%dT%H:%M:%S%z)T\n' -1
+    printf 'Reader command: cdparanoia -vBze\n'
+} > "$summary"
 info "${0##*/} started. Destination: $workdir"
 
 for trial in trial-a trial-b; do
     mkdir -- "$trial" "$trial/flac" "logs/$trial"
     info "Reading CD: $trial"
+    stage="reading $trial"
+    read_started=$SECONDS
+    printf '\n%s: reading started\n' "$trial" >> "$summary"
     # Retry indefinitely instead of skipping sectors; retain each read's diagnostics.
     (cd -- "$trial"; cdparanoia -vBze) 2>&1 |
         tee "logs/$trial/cdparanoia.log" |
@@ -72,6 +117,8 @@ for trial in trial-a trial-b; do
                 fflush()
             }
         '
+    printf '%s: read completed in %s seconds\n' "$trial" "$((SECONDS - read_started))" >> "$summary"
+    stage="encoding and verifying $trial"
     files=("$trial"/*.wav)
     ((${#files[@]} > 0)) || fatal "No WAV tracks produced by $trial; files and logs retained in $workdir."
     : > "$trial/audio.sha256"
@@ -89,13 +136,17 @@ for trial in trial-a trial-b; do
         checksum=${checksum%% *}
         printf '%s  %s\n' "$checksum" "$name" >> "$trial/audio.sha256"
     done
+    printf '%s: %s tracks encoded and verified (including pregap if present)\n' "$trial" "${#files[@]}" >> "$summary"
 done
 
 # Manifests include every track name and its audio checksum, in glob order.
+stage='comparing audio'
 if ! cmp -s -- trial-a/audio.sha256 trial-b/audio.sha256; then
     fatal "Track lists or decoded audio differ; all files and logs retained in $workdir."
 fi
 info 'All tracks match and FLAC integrity checks passed.'
+verified=yes
+stage='publishing and cleaning up'
 
 # Publish the verified output before deleting either set of source WAVs.
 mv -- trial-a/flac ./flac
@@ -106,10 +157,16 @@ for pregap in flac/track00.cdda.flac flac/track00.flac \
     if [[ -f $pregap ]]; then
         rm -- "$pregap"
         info "Discarded pregap: $pregap"
+        printf 'Discarded pregap file: %s\n' "$pregap" >> "$summary"
     fi
 done
 rm -- trial-a/*.wav trial-b/*.wav trial-b/flac/*.flac
 rmdir -- trial-b/flac trial-a trial-b
+output_files=(flac/*.flac)
+printf 'Final FLAC tracks: %s\n' "${#output_files[@]}" >> "$summary"
 info "${0##*/} done. FLAC files: $workdir/flac"
 info 'Ejecting CD.'
+stage='ejecting CD'
 eject
+printf 'CD ejected successfully\n' >> "$summary"
+stage=completed
