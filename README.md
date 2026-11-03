@@ -2,15 +2,15 @@
 
 Bash utilities for ripping audio CDs, converting FLAC albums, and copying metadata.
 
-I originally created these scripts around the early 2000s, and I still use them today.
+I originally created these scripts around the early 2000s but I still use them today.
 
-| Script | Purpose |
-| --- | --- |
-| `prip.sh` | The **p stands for paranoid**: read a CD twice, verify the FLAC files, and compare decoded audio checksums. Discard the pregap (`track00`) after verification and eject the CD on success. Logs include a persistent `logs/summary.log`. |
-| `norm.sh` | Convert albums stored in `flac` directories to sibling `mp3` and/or `ogg` directories, including tags and cover art. Does not normalize audio levels. Rename `trackXX.cdda.flac` to `trackXX.flac`; existing outputs are never overwritten. |
-| `rencode.sh` | Rebuild enabled formats using `norm.sh`, keeping previous outputs until conversion succeeds. Select only paths containing a four-digit year followed by ` -`. |
-| `cpmd.sh` | Replace FLAC tags and embedded pictures from another folder without re-encoding audio. Match relative paths and filenames, ignoring an optional `.cdda` suffix. Supports a dry run. |
-| `msync.sh` | Use Babashka and rsync to sync FLAC or MP3 files, removing the format directory from destination paths while preserving artist/album directories. Source files and extra destination files are retained. |
+| Script       | Purpose                                                    |
+|--------------|------------------------------------------------------------|
+| `prip.sh`    | Rip CDs to FLAC, verifying two independent reads.          |
+| `norm.sh`    | Convert FLAC albums to MP3/Vorbis with tags and cover art. |
+| `rencode.sh` | Rebuild MP3/Vorbis albums using `norm.sh`.                 |
+| `cpmd.sh`    | Copy FLAC tags and cover art without re-encoding.          |
+| `msync.sh`   | Sync FLAC/MP3 files, preserving artist/album folders.      |
 
 ## Examples
 
