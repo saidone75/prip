@@ -1,5 +1,10 @@
 #!/bin/bash
-# Rebuild enabled formats through norm.sh, retaining old outputs until success.
+
+# Author: Marco Marini
+# Description: Rebuild MP3/Vorbis through norm.sh, retaining old outputs until success.
+# License: MIT (see LICENSE)
+# SPDX-License-Identifier: MIT
+
 set -Eeuo pipefail
 
 MP3=${MP3:-1}

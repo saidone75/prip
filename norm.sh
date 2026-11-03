@@ -58,7 +58,7 @@ done
 [[ $OGG_QUALITY =~ ^(-1|[0-9]|10)$ ]] || fatal 'OGG_QUALITY must be an integer from -1 to 10.'
 dependencies=(flac metaflac find mktemp mkdir ln rm)
 [[ $MP3 == 0 ]] || dependencies+=(lame)
-[[ $OGG == 0 ]] || dependencies+=(oggenc python3)
+[[ $OGG == 0 ]] || dependencies+=(oggenc bb)
 for tool in "${dependencies[@]}"; do
     command -v "$tool" >/dev/null 2>&1 || fatal "Required command not found: $tool"
 done
@@ -173,14 +173,24 @@ for file in "${files[@]}"; do
     fi
     if [[ $OGG == 1 ]]; then
         if [[ -n $cover ]]; then
-            picture=$(python3 - "$cover" <<'PY'
-import base64, pathlib, struct, sys
-image = pathlib.Path(sys.argv[1]).read_bytes()
-def uint(n): return struct.pack('>I', n)
-# Zero dimensions/depth indicate unspecified values in the picture block.
-block = uint(3) + uint(10) + b'image/jpeg' + uint(0) + uint(0)*4 + uint(len(image)) + image
-print(base64.b64encode(block).decode('ascii'))
-PY
+            picture=$(bb --file /dev/stdin -- "$cover" <<'CLJ'
+(require '[clojure.java.io :as io])
+(import '(java.io ByteArrayOutputStream DataOutputStream)
+        '(java.util Base64))
+(let [image (ByteArrayOutputStream.)
+      block (ByteArrayOutputStream.)]
+  (with-open [input (io/input-stream (first *command-line-args*))]
+    (io/copy input image))
+  (with-open [output (DataOutputStream. block)]
+    (.writeInt output 3)
+    (.writeInt output 10)
+    (.write output (.getBytes "image/jpeg" "UTF-8"))
+    ;; Empty description and unspecified dimensions/depth/color count.
+    (dotimes [_ 5] (.writeInt output 0))
+    (.writeInt output (.size image))
+    (.write output (.toByteArray image)))
+  (println (.encodeToString (Base64/getEncoder) (.toByteArray block))))
+CLJ
 )
             ogg_args+=(-c "METADATA_BLOCK_PICTURE=$picture")
         fi
