@@ -1,20 +1,17 @@
-#!/usr/bin/env bash
+#!/usr/bin/env bb
 
-# Author: Marco Marini
-# Description: Sync FLAC or MP3 files to album directories without changing the source.
-# License: MIT (see LICENSE)
-# SPDX-License-Identifier: MIT
+;; Author: Marco Marini
+;; Description: Sync FLAC or MP3 files to album directories without changing the source.
+;; License: MIT (see LICENSE)
+;; SPDX-License-Identifier: MIT
 
-set -Eeuo pipefail
-command -v bb >/dev/null 2>&1 || { printf 'Babashka (bb) is required.\n' >&2; exit 1; }
-exec bb --file /dev/stdin -- "$@" <<'CLJ'
 (require '[babashka.fs :as fs]
          '[clojure.java.shell :as shell]
          '[clojure.string :as str])
 
 (defn fail [message] (throw (ex-info message {})))
 (defn usage []
-  (println "Usage: msync.sh -s SOURCE -d DESTINATION -t flac|mp3 [-n]")
+  (println "Usage: msync.bb -s SOURCE -d DESTINATION -t flac|mp3 [-n]")
   (println "Sync local format directories to album directories, preserving artist/album paths.")
   (println "Source files and extra destination files are retained. Existing files are updated")
   (println "using rsync size/time comparison. -n previews changes without writing.")
@@ -107,4 +104,3 @@ exec bb --file /dev/stdin -- "$@" <<'CLJ'
   (catch Exception error
     (binding [*out* *err*] (println "[ERROR]" (.getMessage error)))
     (System/exit 1)))
-CLJ
