@@ -11,6 +11,7 @@ I originally created these scripts around the early 2000s but I still use them t
 | `rencode.sh` | Rebuild MP3/Vorbis albums using `norm.sh`.                 |
 | `cpmd.sh`    | Copy FLAC tags and cover art without re-encoding.          |
 | `msync.bb`   | Sync FLAC/MP3 files, preserving artist/album folders.      |
+| `verify.bb`  | Verify FLAC audio checksums.                               |
 
 ## Examples
 
@@ -31,16 +32,16 @@ bash cpmd.sh -s "/original/flac" -d "/destination/flac" -n
 # Remove -n to copy, or use -t flac to select FLAC files.
 ./msync.bb -s "/music" -d "/portable/music" -t mp3 -n
 
+# Verify ripped audio against saved checksums.
+./verify.bb -f "/music"
+
 ```
 
 ## Requirements
 
-Bash and standard Linux command-line tools. Depending on the script and enabled
-formats: `cdparanoia`, `flac`/`metaflac`, `eject`, `lame`, `oggenc`, Babashka (`bb`),
-and ImageMagick (for cover conversion). Use `-h` for each script's help.
-
-`cpmd.sh` and `msync.bb` require Babashka, as does Ogg Vorbis cover embedding in
-`norm.sh`. `msync.bb` also requires rsync 3.2.3 or later.
+Bash, standard Linux command-line tools, `cdparanoia`, `flac`/`metaflac`,
+`eject`, `lame`, `oggenc`, ImageMagick, VLC (`cvlc`), and rsync 3.2.3 or later.
+Babashka (`bb`) is required for `msync.bb` and `verify.bb`.
 
 ## License
 
