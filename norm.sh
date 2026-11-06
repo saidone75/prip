@@ -37,6 +37,7 @@ usage() {
     printf 'Rename trackXX.cdda.flac to trackXX.flac (XX = two digits), without overwriting.\n'
     printf 'Environment: MP3=1 OGG=0 MP3_QUALITY=0 OGG_QUALITY=6 DEBUG=1\n'
     printf 'Set EXIT_ON_MISSING_ALBUM_META=0 to allow missing ALBUM tags.\n'
+    printf 'MP3 year: prefer TYER, then TDRC, then DATE; write the four-digit year as TYER.\n'
 }
 folder=
 while getopts ':f:h' opt; do
@@ -140,6 +141,14 @@ for file in "${files[@]}"; do
         esac
     done < "$tmpdir/tags"
     [[ -n ${tags[ALBUM]:-} || $EXIT_ON_MISSING_ALBUM_META == 0 ]] || fatal "Missing ALBUM tag: $file"
+    year=
+    if [[ $MP3 == 1 ]]; then
+        date_value=${tags[TYER]:-${tags[TDRC]:-${tags[DATE]:-}}}
+        if [[ -n $date_value ]]; then
+            [[ $date_value =~ ^([0-9]{4})($|[-T[:space:]]) ]] || fatal "Invalid year/date '$date_value': $file"
+            year=${BASH_REMATCH[1]}
+        fi
+    fi
     flac --test -- "$file"
     cover=
     metaflac --list --block-type=PICTURE -- "$file" > "$tmpdir/pictures"
@@ -155,7 +164,8 @@ for file in "${files[@]}"; do
         output="$parent/mp3/$stem.mp3"
         pending=$(mktemp "$parent/mp3/.norm.XXXXXXXX.mp3")
         args=(-V "$MP3_QUALITY" --id3v2-only --id3v2-utf16)
-        for mapping in 'TITLE:TIT2' 'ARTIST:TPE1' 'ALBUM:TALB' 'ALBUMARTIST:TPE2' 'DATE:TDRC' 'GENRE:TCON' 'TRACKNUMBER:TRCK' 'DISCNUMBER:TPOS' 'COMPOSER:TCOM' 'COMMENT:COMM'; do
+        [[ -z $year ]] || args+=(--tv "TYER=$year")
+        for mapping in 'TITLE:TIT2' 'ARTIST:TPE1' 'ALBUM:TALB' 'ALBUMARTIST:TPE2' 'GENRE:TCON' 'TRACKNUMBER:TRCK' 'DISCNUMBER:TPOS' 'COMPOSER:TCOM' 'COMMENT:COMM'; do
             key=${mapping%%:*}
             frame=${mapping#*:}
             value=${tags[$key]:-}
