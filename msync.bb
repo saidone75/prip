@@ -11,11 +11,11 @@
 
 (defn fail [message] (throw (ex-info message {})))
 (defn usage []
-  (println "Usage: msync.bb -s SOURCE -d DESTINATION -t flac|mp3 [-n]")
+  (println "Usage: msync.bb -s SOURCE -d DESTINATION -t flac|mp3 [-n] [--force]")
   (println "Sync local format directories to album directories, preserving artist/album paths.")
-  (println "Source files and extra destination files are retained. Existing files are updated")
-  (println "using rsync size/time comparison. -n previews changes without writing.")
-  (println "Long options: --source, --destination, --format, --dry-run, --help.")
+  (println "Source files and extra destination files are retained. Files with matching size")
+  (println "and modification time are skipped unless --force is passed. -n previews changes.")
+  (println "Long options: --source, --destination, --format, --dry-run, --force, --help.")
   (println "Requires Babashka and rsync with --mkpath support (3.2.3 or later)."))
 
 (defn options [arguments]
@@ -24,6 +24,7 @@
       (cond
         (#{"-h" "--help"} arg) (assoc result :help true)
         (#{"-n" "--dry-run"} arg) (recur (next remaining) (assoc result :dry-run true))
+        (= "--force" arg) (recur (next remaining) (assoc result :force true))
         (#{"-s" "--source" "-d" "--destination" "-t" "--format"} arg)
         (let [value (second remaining)
               key ({"-s" :source "--source" :source "-d" :destination
@@ -69,7 +70,7 @@
          albums))
      (sorted-map) tree)))
 
-(defn sync-music [{:keys [source destination format dry-run]}]
+(defn sync-music [{:keys [source destination format dry-run force]}]
   (when-not (and source destination (#{"flac" "mp3"} format))
     (fail "Specify -s SOURCE -d DESTINATION -t flac|mp3."))
   (when-not (fs/which "rsync") (fail "Required command not found: rsync"))
@@ -89,7 +90,8 @@
           (flush)
           (let [command (cond-> ["rsync" "--times" "--omit-dir-times" "--itemize-changes"
                                  "--human-readable" "--mkpath" "--from0" "--files-from=-"]
-                          dry-run (conj "--dry-run"))
+                          dry-run (conj "--dry-run")
+                          force (conj "--ignore-times"))
                 {:keys [exit out err]} (apply shell/sh
                                               (concat command ["--" (str folder "/") (str output "/")
                                                                :in (str (str/join "\u0000" tracks) "\u0000")]))]
