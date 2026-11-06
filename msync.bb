@@ -52,20 +52,20 @@
          (let [tracks (->> (fs/list-dir folder)
                            (filter #(and (fs/regular-file? %) (not (fs/sym-link? %))
                                          (str/ends-with? (str/lower-case (str (fs/file-name %)))
-                                                        (str "." format))))
+                                                         (str "." format))))
                            (map #(str (fs/file-name %))) sort vec)
                relative (if (= source folder) "" (str (fs/relativize source (fs/parent folder))))
                output (fs/path destination relative)]
            (if (empty? tracks) albums
-             (do
-               (when (contains? albums relative)
-                 (fail (str "Multiple format directories map to album: " relative)))
-               (check-directory output)
-               (doseq [name tracks :let [target (fs/path output name)]]
-                 (when (or (fs/sym-link? target)
-                           (and (fs/exists? target) (not (fs/regular-file? target))))
-                   (fail (str "Destination track is not a regular file: " target))))
-               (assoc albums relative {:folder folder :tracks tracks :output output}))))
+               (do
+                 (when (contains? albums relative)
+                   (fail (str "Multiple format directories map to album: " relative)))
+                 (check-directory output)
+                 (doseq [name tracks :let [target (fs/path output name)]]
+                   (when (or (fs/sym-link? target)
+                             (and (fs/exists? target) (not (fs/regular-file? target))))
+                     (fail (str "Destination track is not a regular file: " target))))
+                 (assoc albums relative {:folder folder :tracks tracks :output output}))))
          albums))
      (sorted-map) tree)))
 
@@ -88,7 +88,7 @@
           (println "[INFO]" (str folder) "->" (str output))
           (flush)
           (let [command (cond-> ["rsync" "--times" "--omit-dir-times" "--itemize-changes"
-                                "--human-readable" "--mkpath" "--from0" "--files-from=-"]
+                                 "--human-readable" "--mkpath" "--from0" "--files-from=-"]
                           dry-run (conj "--dry-run"))
                 {:keys [exit out err]} (apply shell/sh
                                               (concat command ["--" (str folder "/") (str output "/")
