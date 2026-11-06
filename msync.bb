@@ -14,7 +14,8 @@
   (println "Usage: msync.bb -s SOURCE -d DESTINATION -t flac|mp3 [-n] [--force]")
   (println "Sync local format directories to album directories, preserving artist/album paths.")
   (println "Source files and extra destination files are retained. Files with matching size")
-  (println "and modification time are skipped unless --force is passed. -n previews changes.")
+  (println "are skipped unless --force is passed. -n previews changes.")
+  (println "Transfers update destination files in place; interruptions may leave partial files.")
   (println "Long options: --source, --destination, --format, --dry-run, --force, --help.")
   (println "Requires Babashka and rsync with --mkpath support (3.2.3 or later)."))
 
@@ -88,9 +89,11 @@
         (doseq [[_ {:keys [folder tracks output]}] albums]
           (println "[INFO]" (str folder) "->" (str output))
           (flush)
-          (let [command (cond-> ["rsync" "--times" "--omit-dir-times" "--itemize-changes"
+          (let [command (cond-> ["rsync" "--inplace" "--size-only"
+                                 "--times" "--omit-dir-times" "--itemize-changes"
                                  "--human-readable" "--mkpath" "--from0" "--files-from=-"]
                           dry-run (conj "--dry-run")
+                          force (->> (remove #{"--size-only"}) vec)
                           force (conj "--ignore-times"))
                 {:keys [exit out err]} (apply shell/sh
                                               (concat command ["--" (str folder "/") (str output "/")
