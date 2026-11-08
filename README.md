@@ -32,10 +32,26 @@ bash cpmd.sh -s "/original/flac" -d "/destination/flac" -n
 # Remove -n to copy, or use -t flac to select FLAC files.
 ./msync.bb -s "/music" -d "/portable/music" -t mp3 -n
 
+# Also preview deletion of MP3 files no longer present in the source.
+./msync.bb -s "/music" -d "/portable/music" -t mp3 --delete -n
+
 # Verify ripped audio against saved checksums.
 ./verify.bb -f "/music"
 
 ```
+
+`msync.bb` automatically reads [msync.blacklist](msync.blacklist) beside the script.
+Add one exact album name (matching all artists) or relative `Artist/Album` path
+per line. Matching is case-sensitive. Blank lines and lines starting with `#`
+(including indented comments) are ignored. Use `--blacklist FILE` to override it.
+Blacklisted albums are not copied. With `--delete`, their destination files of
+the selected format are removed as well.
+
+By default, destination files with matching size are skipped; `--force` transfers
+them anyway. `--delete` removes only files of the selected format that have no
+source counterpart, including tracks from removed albums, and prunes their empty
+parent directories. Other formats and non-audio files are retained. Deletions run
+only after all transfers succeed. Use `-n` to preview without changing anything.
 
 ## Requirements
 

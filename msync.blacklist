@@ -1,0 +1,7 @@
+# Automatically loaded by msync.bb from the script directory.
+# One exact album name or artist/album relative path per line (case-sensitive).
+# Blank lines and lines starting with # (including indented comments) are ignored.
+# Excluded albums are not copied; --delete removes their selected-format destination files.
+# Examples (uncomment to enable):
+# 1983 - Crises
+# Mike Oldfield/1984 - Discovery
