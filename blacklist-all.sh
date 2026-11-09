@@ -11,15 +11,17 @@ if [[ $# -ne 1 || ! -d $1 ]]; then
     exit 1
 fi
 cat <<'HEADER'
-# msync.bb album blacklist
-# Active lines EXCLUDE albums from synchronization.
-# To sync an album, comment its line by adding # at the beginning.
-# Blank lines and lines starting with # are ignored.
-# With --delete, excluded albums are removed from the destination for the selected format.
-# Paths below are relative to the music directory; use the same source with msync.bb.
+## msync.bb album selection
+## Lines starting with a single # EXCLUDE albums from synchronization.
+## To sync an album, remove its leading #; uncommented album lines are enabled.
+## Blank lines and lines starting with ## are ignored as instructions.
+## Albums not listed are synchronized; an exclusion wins over a duplicate enabled entry.
+## With --delete, excluded albums are removed from the destination for the selected format.
+## Paths below are relative to the music directory; use the same source with msync.bb.
 
 HEADER
 find "$1" -type d \( -iname mp3 -o -iname flac \) -printf '%P\n' |
     sed -E 's#/?([mM][pP]3|[fF][lL][aA][cC])$##' |
     sed '/^$/d' |
-    LC_ALL=C sort -u
+    LC_ALL=C sort -u |
+    sed 's/^/# /'

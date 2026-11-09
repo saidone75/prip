@@ -42,10 +42,18 @@ bash cpmd.sh -s "/original/flac" -d "/destination/flac" -n
 
 `msync.bb` automatically reads [msync.blacklist](msync.blacklist) beside the script.
 Add one exact album name (matching all artists) or relative `Artist/Album` path
-per line. Matching is case-sensitive. Blank lines and lines starting with `#`
-(including indented comments) are ignored. Use `--blacklist FILE` to override it.
+per line. Matching is case-sensitive. A single leading `#` excludes an album;
+remove it to synchronize the album. Blank lines and `##` instruction lines are
+ignored, including after indentation. Albums not listed are synchronized; an
+exclusion wins if the same album is also enabled. Use `--blacklist FILE` to override it.
 Blacklisted albums are not copied. With `--delete`, their destination files of
 the selected format are removed as well.
+
+Generate a list with every album excluded, then remove `#` from the albums to sync:
+
+```bash
+./blacklist-all.sh "/music" > msync.blacklist
+```
 
 By default, destination files with matching size are skipped; `--force` transfers
 them anyway. `--delete` removes only files of the selected format that have no

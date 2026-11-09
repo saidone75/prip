@@ -20,7 +20,8 @@
   (println "Transfers update destination files in place; interruptions may leave partial files.")
   (println "--blacklist FILE: exact album names or relative album paths, one per line.")
   (println "Default blacklist: msync.blacklist beside this script (optional).")
-  (println "Blank lines and lines starting with # are ignored. Blacklisted albums are not copied.")
+  (println "# Album excludes it; Album enables it. Blank lines and ## instructions are ignored.")
+  (println "Albums not listed are synced. An exclusion wins over a duplicate enabled entry.")
   (println "--delete: after successful copies, delete destination files of the selected format")
   (println "that are absent from the source or blacklisted, then remove their empty parent directories.")
   (println "Long options: --source, --destination, --format, --dry-run, --force, --blacklist, --delete, --help.")
@@ -57,12 +58,15 @@
   (if-not file #{}
     (into #{}
           (keep (fn [line]
-                  (let [entry (str/trim line)]
-                    (when-not (or (str/blank? entry) (str/starts-with? entry "#"))
-                      (when (or (str/starts-with? entry "/")
-                                (some #{"." ".."} (str/split entry #"/")))
-                        (fail (str "Invalid blacklist entry: " entry)))
-                      (str/replace entry #"/+$" "")))))
+                  (let [line (str/trim line)]
+                    (when-not (or (str/blank? line) (str/starts-with? line "##"))
+                      (let [excluded (str/starts-with? line "#")
+                            entry (str/trim (if excluded (subs line 1) line))]
+                        (when (str/blank? entry) (fail "Empty album name after #"))
+                        (when (or (str/starts-with? entry "/")
+                                  (some #{"." ".."} (str/split entry #"/")))
+                          (fail (str "Invalid blacklist entry: " entry)))
+                        (when excluded (str/replace entry #"/+$" "")))))))
           (str/split-lines (slurp file)))))
 
 (defn excluded? [root directory blacklist]
