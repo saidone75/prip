@@ -58,6 +58,9 @@ Generate a list with every album excluded, then remove `#` from the albums to sy
 With no arguments, `blacklist-all.sh` scans the current directory. It writes
 `msync.blacklist` in the current directory and backs up an existing file to
 `msync.blacklist.bak`, replacing previous backup if any.
+Existing included/excluded choices are preserved; if the current list is missing,
+choices are recovered from `.bak`. New albums start excluded, missing albums are
+removed, and entries remain alphabetically sorted by relative path, ignoring `#`.
 
 By default, destination files with matching size are skipped; `--force` transfers
 them anyway. `--delete` removes only files of the selected format that have no
