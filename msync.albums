@@ -2,6 +2,6 @@
 ## One exact album name or artist/album relative path per line (case-sensitive).
 ## # Album excludes it; Album synchronizes it. Remove # to enable an album.
 ## Blank lines and ## instructions are ignored, including after indentation.
-## Albums not listed are synchronized; an exclusion wins over a duplicate enabled entry.
+## Albums not listed are excluded; an exclusion wins over a duplicate enabled entry.
 ## With --delete, excluded albums' selected-format destination files are removed.
-## Run blacklist-all.sh [MUSIC_DIRECTORY] to start with all albums excluded.
+## Run albums-all.sh [MUSIC_DIRECTORY] to start with all albums excluded.

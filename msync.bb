@@ -10,21 +10,21 @@
          '[clojure.string :as str])
 
 (defn fail [message] (throw (ex-info message {})))
-(def default-blacklist (fs/path (fs/parent (fs/canonicalize *file*)) "msync.blacklist"))
+(def default-selection (fs/path (fs/parent (fs/canonicalize *file*)) "msync.albums"))
 (defn usage []
   (println "Usage: msync.bb -s SOURCE -d DESTINATION -t flac|mp3 [-n] [--force]")
-  (println "                [--blacklist FILE] [--delete]")
+  (println "                [--albums FILE] [--delete]")
   (println "Sync local format directories to album directories, preserving artist/album paths.")
   (println "Source files are retained; extra destination files are retained unless --delete is passed.")
   (println "Files with matching size are skipped unless --force is passed. -n previews changes.")
   (println "Transfers update destination files in place; interruptions may leave partial files.")
-  (println "--blacklist FILE: exact album names or relative album paths, one per line.")
-  (println "Default blacklist: msync.blacklist beside this script (optional).")
+  (println "--albums FILE: exact album names or relative album paths, one per line.")
+  (println "Default selection: msync.albums beside this script (required).")
   (println "# Album excludes it; Album enables it. Blank lines and ## instructions are ignored.")
-  (println "Albums not listed are synced. An exclusion wins over a duplicate enabled entry.")
+  (println "Albums not listed are excluded. An exclusion wins over a duplicate enabled entry.")
   (println "--delete: after successful copies, delete destination files of the selected format")
-  (println "that are absent from the source or blacklisted, then remove their empty parent directories.")
-  (println "Long options: --source, --destination, --format, --dry-run, --force, --blacklist, --delete, --help.")
+  (println "that are absent from the source or not enabled in the album list, then remove their empty parent directories.")
+  (println "Long options: --source, --destination, --format, --dry-run, --force, --albums, --delete, --help.")
   (println "Requires Babashka and rsync with --mkpath support (3.2.3 or later)."))
 
 (defn options [arguments]
@@ -35,11 +35,11 @@
         (#{"-n" "--dry-run"} arg) (recur (next remaining) (assoc result :dry-run true))
         (= "--force" arg) (recur (next remaining) (assoc result :force true))
         (= "--delete" arg) (recur (next remaining) (assoc result :delete true))
-        (#{"-s" "--source" "-d" "--destination" "-t" "--format" "--blacklist"} arg)
+        (#{"-s" "--source" "-d" "--destination" "-t" "--format" "--albums"} arg)
         (let [value (second remaining)
               key ({"-s" :source "--source" :source "-d" :destination
                     "--destination" :destination "-t" :format "--format" :format
-                    "--blacklist" :blacklist} arg)]
+                    "--albums" :selection} arg)]
           (when (or (nil? value) (str/starts-with? value "--"))
             (fail (str "Missing value for " arg)))
           (recur (nnext remaining) (assoc result key value)))
@@ -54,40 +54,37 @@
     (when (and (fs/exists? component) (not (fs/directory? component)))
       (fail (str "Destination directory is a file: " component)))))
 
-(defn read-blacklist [file]
-  (if-not file #{}
-    (into #{}
-          (keep (fn [line]
-                  (let [line (str/trim line)]
-                    (when-not (or (str/blank? line) (str/starts-with? line "##"))
-                      (let [excluded (str/starts-with? line "#")
-                            entry (str/trim (if excluded (subs line 1) line))]
-                        (when (str/blank? entry) (fail "Empty album name after #"))
-                        (when (or (str/starts-with? entry "/")
-                                  (some #{"." ".."} (str/split entry #"/")))
-                          (fail (str "Invalid blacklist entry: " entry)))
-                        (when excluded (str/replace entry #"/+$" "")))))))
-          (str/split-lines (slurp file)))))
+(defn read-selection [file]
+  (reduce
+   (fn [result line]
+     (let [line (str/trim line)]
+       (if (or (str/blank? line) (str/starts-with? line "##")) result
+         (let [excluded (str/starts-with? line "#")
+               entry (str/trim (if excluded (subs line 1) line))]
+           (when (or (str/blank? entry) (str/starts-with? entry "/")
+                     (some #{"." ".."} (str/split entry #"/")))
+             (fail (str "Invalid album selection entry: " entry)))
+           (update result (if excluded :excluded :included) conj
+                   (str/replace entry #"/+$" ""))))))
+   {:included #{} :excluded #{}} (str/split-lines (slurp (str file)))))
 
-(defn excluded? [root directory blacklist]
-  (boolean
-   (some (fn [path]
-           (let [relative (str (fs/relativize root path))]
-             (or (contains? blacklist relative)
-                 (contains? blacklist (str (fs/file-name path))))))
-         (take-while #(and % (not= root %)) (iterate fs/parent directory)))))
+(defn selected-album? [source folder selection]
+  (let [album (fs/parent folder)
+        relative (if (= source folder) "" (str (fs/relativize source album)))
+        keys [relative (str (fs/file-name album))]]
+    (and (some (:included selection) keys)
+         (not-any? (:excluded selection) keys))))
 
-(defn music-tree [root blacklist]
-  (tree-seq #(and (fs/directory? %) (not (fs/sym-link? %))
-                 (not (excluded? root % blacklist)))
+(defn music-tree [root]
+  (tree-seq #(and (fs/directory? %) (not (fs/sym-link? %)))
             #(sort-by str (fs/list-dir %)) root))
 
-(defn plan [source destination format blacklist]
-  (let [tree (music-tree source blacklist)]
+(defn plan [source destination format selection]
+  (let [tree (music-tree source)]
     (reduce
      (fn [albums folder]
        (if (and (fs/directory? folder) (not (fs/sym-link? folder))
-                (not (excluded? source folder blacklist))
+                (selected-album? source folder selection)
                 (= format (str/lower-case (str (fs/file-name folder)))))
          (let [tracks (->> (fs/list-dir folder)
                            (filter #(and (fs/regular-file? %) (not (fs/sym-link? %))
@@ -113,7 +110,7 @@
   (let [expected (into #{} (for [[_ {:keys [tracks output]}] albums name tracks]
                             (str (fs/path output name))))]
     (if-not (fs/exists? destination) []
-      (->> (music-tree destination #{})
+      (->> (music-tree destination)
            (filter #(and (fs/regular-file? %) (not (fs/sym-link? %))
                          (str/ends-with? (str/lower-case (str (fs/file-name %))) (str "." format))
                          (not (contains? expected (str %)))))
@@ -134,7 +131,7 @@
           (fs/delete directory)
           (recur (fs/parent directory)))))))
 
-(defn sync-music [{:keys [source destination format dry-run force blacklist delete]}]
+(defn sync-music [{:keys [source destination format dry-run force selection delete]}]
   (when-not (and source destination (#{"flac" "mp3"} format))
     (fail "Specify -s SOURCE -d DESTINATION -t flac|mp3."))
   (when-not (fs/which "rsync") (fail "Required command not found: rsync"))
@@ -145,14 +142,12 @@
     (let [destination (fs/canonicalize destination)]
       (when (or (fs/starts-with? destination source) (fs/starts-with? source destination))
         (fail "Source and destination directories must not overlap."))
-      (let [blacklist-file (or blacklist (when (fs/exists? default-blacklist) default-blacklist))
-            blacklist (read-blacklist (some-> blacklist-file str))
-            albums (plan source destination format blacklist)
+      (let [selection-file (or selection default-selection)
+            selection (read-selection selection-file)
+            albums (plan source destination format selection)
             stale (when delete (deletion-plan destination format albums))]
-        (when (and (empty? albums) (empty? blacklist) (not delete))
-          (fail (str "No " format " tracks found in format directories.")))
-        (when blacklist-file
-          (println "[INFO] Blacklist:" (str blacklist-file) "-" (count blacklist) "active entries."))
+        (println "[INFO] Album selection:" (str selection-file) "-"
+                 (count (:included selection)) "enabled," (count (:excluded selection)) "excluded entries.")
         (when delete (println "[INFO]" (count stale) "obsolete destination files selected for deletion."))
         (println "[INFO]" (count albums) "albums," (reduce + (map #(count (:tracks %)) (vals albums)))
                  (str/upper-case format) "files" (if dry-run "(dry run)" ""))

@@ -8,8 +8,8 @@
 set -Eeuo pipefail
 usage() {
     printf 'Usage: %s [MUSIC_DIRECTORY]\n' "${0##*/}"
-    printf 'Default source: current directory. Write msync.blacklist in the current directory.\n'
-    printf 'Back up an existing file to msync.blacklist.bak (replacing the previous backup).\n'
+    printf 'Default source: current directory. Write msync.albums in the current directory.\n'
+    printf 'Back up an existing file to msync.albums.bak (replacing the previous backup).\n'
     printf 'Merge existing choices (or .bak if missing), remove absent albums, and sort by album path.\n'
 }
 if [[ ${1:-} == -h || ${1:-} == --help ]]; then
@@ -21,7 +21,7 @@ if [[ $# -gt 1 || ! -d $library ]]; then
     usage >&2
     exit 1
 fi
-output=msync.blacklist
+output=msync.albums
 backup="$output.bak"
 for path in "$output" "$backup"; do
     if [[ -L $path || ( -e $path && ! -f $path ) ]]; then
@@ -35,7 +35,7 @@ if [[ -f $output ]]; then
 elif [[ -f $backup ]]; then
     merge_source=$backup
 fi
-pending=$(mktemp .blacklist-all.XXXXXXXX)
+pending=$(mktemp .albums-all.XXXXXXXX)
 trap 'rm -f -- "$pending"' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM HUP
@@ -45,7 +45,7 @@ cat <<'HEADER'
 ## Lines starting with a single # EXCLUDE albums from synchronization.
 ## To sync an album, remove its leading #; uncommented album lines are enabled.
 ## Blank lines and lines starting with ## are ignored as instructions.
-## Albums not listed are synchronized; an exclusion wins over a duplicate enabled entry.
+## Albums not listed are excluded; an exclusion wins over a duplicate enabled entry.
 ## With --delete, excluded albums are removed from the destination for the selected format.
 ## Paths below are relative to the music directory; use the same source with msync.bb.
 ## Existing choices are preserved; new albums are excluded and absent albums are removed.
@@ -55,9 +55,9 @@ find "$library" -type d \( -iname mp3 -o -iname flac \) -printf '%P\n' |
     sed -E 's#/?([mM][pP]3|[fF][lL][aA][cC])$##' |
     sed '/^$/d' |
     LC_ALL=C sort -u |
-    BLACKLIST_MERGE_SOURCE="$merge_source" awk '
+    ALBUMS_MERGE_SOURCE="$merge_source" awk '
         BEGIN {
-            previous = ENVIRON["BLACKLIST_MERGE_SOURCE"]
+            previous = ENVIRON["ALBUMS_MERGE_SOURCE"]
             if (previous != "") {
                 while ((status = (getline line < previous)) > 0) {
                     sub(/^[[:space:]]+/, "", line)
@@ -79,15 +79,10 @@ find "$library" -type d \( -iname mp3 -o -iname flac \) -printf '%P\n' |
             # Match the same relative paths and album names accepted by msync.bb.
             known = 0
             excluded = 0
-            path = album
-            while (path != "") {
-                name = path
-                sub(/^.*\//, "", name)
-                if (path in choices) { known = 1; excluded = excluded || choices[path] }
-                if (name in choices) { known = 1; excluded = excluded || choices[name] }
-                if (path !~ /\//) break
-                sub(/\/[^/]*$/, "", path)
-            }
+            name = album
+            sub(/^.*\//, "", name)
+            if (album in choices) { known = 1; excluded = choices[album] }
+            if (name in choices) { known = 1; excluded = excluded || choices[name] }
             print ((!known || excluded) ? "# " : "") album
         }
     '
@@ -95,7 +90,7 @@ find "$library" -type d \( -iname mp3 -o -iname flac \) -printf '%P\n' |
 if [[ -f $output ]]; then
     cp -p -- "$output" "$backup"
     chmod --reference="$output" "$pending"
-    printf '[INFO] Previous blacklist backed up to %s\n' "$backup"
+    printf '[INFO] Previous album list backed up to %s\n' "$backup"
 fi
 mv -T -- "$pending" "$output"
-printf '[INFO] Blacklist written to %s\n' "$output"
+printf '[INFO] Album list written to %s\n' "$output"

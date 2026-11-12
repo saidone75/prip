@@ -40,24 +40,25 @@ bash cpmd.sh -s "/original/flac" -d "/destination/flac" -n
 
 ```
 
-`msync.bb` automatically reads [msync.blacklist](msync.blacklist) beside the script.
+`msync.bb` requires an album list and automatically reads [msync.albums](msync.albums)
+beside the script. A missing list causes an error before copying or deleting.
 Add one exact album name (matching all artists) or relative `Artist/Album` path
 per line. Matching is case-sensitive. A single leading `#` excludes an album;
 remove it to synchronize the album. Blank lines and `##` instruction lines are
-ignored, including after indentation. Albums not listed are synchronized; an
-exclusion wins if the same album is also enabled. Use `--blacklist FILE` to override it.
-Blacklisted albums are not copied. With `--delete`, their destination files of
-the selected format are removed as well.
+ignored, including after indentation. Albums not listed are excluded; an
+exclusion wins if the same album is also enabled. Use `--albums FILE` to override it.
+Only explicitly enabled albums are copied. With `--delete`, destination files of
+the selected format from commented or unlisted albums are removed as well.
 
 Generate a list with every album excluded, then remove `#` from the albums to sync:
 
 ```bash
-./blacklist-all.sh "/music"
+./albums-all.sh "/music"
 ```
 
-With no arguments, `blacklist-all.sh` scans the current directory. It writes
-`msync.blacklist` in the current directory and backs up an existing file to
-`msync.blacklist.bak`, replacing previous backup if any.
+With no arguments, `albums-all.sh` scans the current directory. It writes
+`msync.albums` in the current directory and backs up an existing file to
+`msync.albums.bak`, replacing previous backup if any.
 Existing included/excluded choices are preserved; if the current list is missing,
 choices are recovered from `.bak`. New albums start excluded, missing albums are
 removed, and entries remain alphabetically sorted by relative path, ignoring `#`.
