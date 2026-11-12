@@ -52,8 +52,12 @@ the selected format are removed as well.
 Generate a list with every album excluded, then remove `#` from the albums to sync:
 
 ```bash
-./blacklist-all.sh "/music" > msync.blacklist
+./blacklist-all.sh "/music"
 ```
+
+With no arguments, `blacklist-all.sh` scans the current directory. It writes
+`msync.blacklist` in the current directory and backs up an existing file to
+`msync.blacklist.bak`, replacing previous backup if any.
 
 By default, destination files with matching size are skipped; `--force` transfers
 them anyway. `--delete` removes only files of the selected format that have no
